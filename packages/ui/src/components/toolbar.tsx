@@ -48,7 +48,7 @@ interface ToolbarProps {
   onGitHubPulled?: () => void;
 }
 
-function extractCodeContext(diff: ParsedDiff | undefined, filePath: string, side: 'old' | 'new', startLine: number, endLine: number): string[] {
+function extractCodeContext(diff: ParsedDiff | undefined, filePath: string, side: 'old' | 'new' | 'both', startLine: number, endLine: number, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number): string[] {
   if (!diff) {
     return [];
   }
@@ -61,8 +61,17 @@ function extractCodeContext(diff: ParsedDiff | undefined, filePath: string, side
   const lines: string[] = [];
   for (const hunk of file.hunks) {
     for (const line of hunk.lines) {
-      const lineNum = side === 'old' ? line.oldLineNumber : line.newLineNumber;
-      if (lineNum !== null && lineNum >= startLine && lineNum <= endLine) {
+      let include = false;
+      if (side === 'both') {
+        const oldNum = line.oldLineNumber;
+        const newNum = line.newLineNumber;
+        if (oldNum !== null && oldStartLine !== undefined && oldEndLine !== undefined && oldNum >= oldStartLine && oldNum <= oldEndLine) include = true;
+        if (newNum !== null && newStartLine !== undefined && newEndLine !== undefined && newNum >= newStartLine && newNum <= newEndLine) include = true;
+      } else {
+        const lineNum = side === 'old' ? line.oldLineNumber : line.newLineNumber;
+        if (lineNum !== null && lineNum >= startLine && lineNum <= endLine) include = true;
+      }
+      if (include) {
         const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
         lines.push(`${prefix} ${line.content}`);
       }
@@ -92,11 +101,11 @@ function formatThreadsForCopy(threads: CommentThread[], diff?: ParsedDiff, diffR
       const lineRange = thread.startLine === thread.endLine
         ? `${thread.startLine}`
         : `${thread.startLine}-${thread.endLine}`;
-      const sideDesc = thread.side === 'old' ? 'before change' : 'after change';
+      const sideDesc = thread.side === 'old' ? 'before change' : thread.side === 'new' ? 'after change' : 'across old and new';
       parts.push(`## ${thread.filePath}:${lineRange} (${sideDesc})`);
     }
 
-    const codeLines = extractCodeContext(diff, thread.filePath, thread.side, thread.startLine, thread.endLine);
+    const codeLines = extractCodeContext(diff, thread.filePath, thread.side, thread.startLine, thread.endLine, thread.oldStartLine, thread.oldEndLine, thread.newStartLine, thread.newEndLine);
     if (codeLines.length > 0) {
       parts.push('```diff');
       parts.push(...codeLines);

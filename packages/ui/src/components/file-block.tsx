@@ -120,12 +120,23 @@ export function FileBlock(props: FileBlockProps) {
     return extractLinesFromExpandedLines(allExpandedLines, side, startLine, endLine);
   }, [file.hunks, allExpandedLines]);
 
-  const addThread = useCallback((fp: string, side: CommentSide, startLine: number, endLine: number, body: string, author: import('../types/comment').CommentAuthor) => {
-    let anchorContent = extractLinesFromDiff(file.hunks, side, startLine, endLine);
-    if (!anchorContent) {
-      anchorContent = extractLinesFromExpandedLines(allExpandedLines, side, startLine, endLine);
+  const addThread = useCallback((fp: string, side: CommentSide, startLine: number, endLine: number, body: string, author: import('../types/comment').CommentAuthor, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number) => {
+    let anchorContent: string | undefined;
+    if (side === 'both') {
+      const parts: string[] = [];
+      if (oldStartLine !== undefined && oldEndLine !== undefined) {
+        const oldContent = extractLinesFromDiff(file.hunks, 'old', oldStartLine, oldEndLine) || extractLinesFromExpandedLines(allExpandedLines, 'old', oldStartLine, oldEndLine);
+        if (oldContent) parts.push(oldContent);
+      }
+      if (newStartLine !== undefined && newEndLine !== undefined) {
+        const newContent = extractLinesFromDiff(file.hunks, 'new', newStartLine, newEndLine) || extractLinesFromExpandedLines(allExpandedLines, 'new', newStartLine, newEndLine);
+        if (newContent) parts.push(newContent);
+      }
+      anchorContent = parts.join('\n') || undefined;
+    } else {
+      anchorContent = extractLinesFromDiff(file.hunks, side, startLine, endLine) || extractLinesFromExpandedLines(allExpandedLines, side, startLine, endLine) || undefined;
     }
-    rawAddThread(fp, side, startLine, endLine, body, author, anchorContent || undefined);
+    rawAddThread(fp, side, startLine, endLine, body, author, anchorContent, oldStartLine, oldEndLine, newStartLine, newEndLine);
   }, [rawAddThread, file.hunks, allExpandedLines]);
 
   const allFileThreads = useMemo(() => {
@@ -153,10 +164,24 @@ export function FileBlock(props: FileBlockProps) {
     const orphaned: typeof allFileThreads = [];
     for (const thread of allFileThreads) {
       let isInDiff = false;
-      for (let line = thread.startLine; line <= thread.endLine; line++) {
-        if (diffLineNumbers.has(`${thread.side}:${line}`)) {
-          isInDiff = true;
-          break;
+      if (thread.side === 'both') {
+        // For cross-side threads, only check the explicitly defined old and new ranges
+        if (thread.oldStartLine !== undefined && thread.oldEndLine !== undefined) {
+          for (let line = thread.oldStartLine; line <= thread.oldEndLine && !isInDiff; line++) {
+            if (diffLineNumbers.has(`old:${line}`)) isInDiff = true;
+          }
+        }
+        if (thread.newStartLine !== undefined && thread.newEndLine !== undefined) {
+          for (let line = thread.newStartLine; line <= thread.newEndLine && !isInDiff; line++) {
+            if (diffLineNumbers.has(`new:${line}`)) isInDiff = true;
+          }
+        }
+      } else {
+        for (let line = thread.startLine; line <= thread.endLine; line++) {
+          if (diffLineNumbers.has(`${thread.side}:${line}`)) {
+            isInDiff = true;
+            break;
+          }
         }
       }
 
@@ -170,6 +195,59 @@ export function FileBlock(props: FileBlockProps) {
     return { anchoredThreads: anchored, orphanedThreads: orphaned };
   }, [allFileThreads, file.hunks, allExpandedLines]);
 
+  const computeCrossSideRanges = useCallback((
+    anchorLine: number,
+    anchorSide: CommentSide,
+    currentLine: number,
+    currentSide: CommentSide,
+  ): { oldStartLine?: number; oldEndLine?: number; newStartLine?: number; newEndLine?: number } | null => {
+    // Collect all lines in visual order from hunks + expanded lines
+    const allLines: DiffLineType[] = [];
+    for (const hunk of file.hunks) {
+      allLines.push(...hunk.lines);
+    }
+    allLines.push(...allExpandedLines);
+
+    // Find visual indices of anchor and current lines
+    let anchorIdx = -1;
+    let currentIdx = -1;
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i];
+      if (anchorIdx === -1) {
+        if (anchorSide === 'old' && line.oldLineNumber === anchorLine) anchorIdx = i;
+        else if (anchorSide === 'new' && line.newLineNumber === anchorLine) anchorIdx = i;
+      }
+      if (currentIdx === -1) {
+        if (currentSide === 'old' && line.oldLineNumber === currentLine) currentIdx = i;
+        else if (currentSide === 'new' && line.newLineNumber === currentLine) currentIdx = i;
+      }
+    }
+
+    if (anchorIdx === -1 || currentIdx === -1) return null;
+
+    const startIdx = Math.min(anchorIdx, currentIdx);
+    const endIdx = Math.max(anchorIdx, currentIdx);
+
+    let oldStart: number | undefined;
+    let oldEnd: number | undefined;
+    let newStart: number | undefined;
+    let newEnd: number | undefined;
+
+    for (let i = startIdx; i <= endIdx; i++) {
+      const line = allLines[i];
+      if (line.oldLineNumber !== null) {
+        if (oldStart === undefined) oldStart = line.oldLineNumber;
+        oldEnd = line.oldLineNumber;
+      }
+      if (line.newLineNumber !== null) {
+        if (newStart === undefined) newStart = line.newLineNumber;
+        newEnd = line.newLineNumber;
+      }
+    }
+
+    return { oldStartLine: oldStart, oldEndLine: oldEnd, newStartLine: newStart, newEndLine: newEnd };
+  }, [file.hunks, allExpandedLines]);
+
   const handleSelectionComplete = useCallback((selection: LineSelection) => {
     if (!commentsEnabled) {
       return;
@@ -180,6 +258,7 @@ export function FileBlock(props: FileBlockProps) {
   const { isLineInSelection, handleLineMouseDown, handleLineMouseEnter } = useLineSelection({
     filePath,
     onSelectionComplete: handleSelectionComplete,
+    computeCrossSideRanges,
   });
 
   const handleCommentClickFn = useCallback((line: number, side: CommentSide) => {
@@ -201,11 +280,28 @@ export function FileBlock(props: FileBlockProps) {
     if (isLineInSelection(line, side)) {
       return true;
     }
-    if (pendingSelection && pendingSelection.filePath === filePath && pendingSelection.side === side) {
-      return line >= pendingSelection.startLine && line <= pendingSelection.endLine;
+    if (pendingSelection && pendingSelection.filePath === filePath) {
+      if (pendingSelection.side === 'both') {
+        if (side === 'old' && pendingSelection.oldStartLine !== undefined && pendingSelection.oldEndLine !== undefined) {
+          if (line >= pendingSelection.oldStartLine && line <= pendingSelection.oldEndLine) return true;
+        }
+        if (side === 'new' && pendingSelection.newStartLine !== undefined && pendingSelection.newEndLine !== undefined) {
+          if (line >= pendingSelection.newStartLine && line <= pendingSelection.newEndLine) return true;
+        }
+      } else if (pendingSelection.side === side) {
+        if (line >= pendingSelection.startLine && line <= pendingSelection.endLine) return true;
+      }
     }
     for (const thread of fileThreads) {
-      if (thread.side === side && line >= thread.startLine && line <= thread.endLine && thread.status === 'open') {
+      if (thread.status !== 'open') continue;
+      if (thread.side === 'both') {
+        if (side === 'old' && thread.oldStartLine !== undefined && thread.oldEndLine !== undefined) {
+          if (line >= thread.oldStartLine && line <= thread.oldEndLine) return true;
+        }
+        if (side === 'new' && thread.newStartLine !== undefined && thread.newEndLine !== undefined) {
+          if (line >= thread.newStartLine && line <= thread.newEndLine) return true;
+        }
+      } else if (thread.side === side && line >= thread.startLine && line <= thread.endLine) {
         return true;
       }
     }

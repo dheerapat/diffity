@@ -51,6 +51,21 @@ function migrateDb(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_threads_session ON comment_threads(session_id);
     CREATE INDEX IF NOT EXISTS idx_comments_thread ON comments(thread_id);
   `);
+
+  // Migrations for new columns (idempotent via ALTER TABLE … IF NOT EXISTS pattern)
+  const existingCols = (db.prepare("PRAGMA table_info(comment_threads)").all() as { name: string }[]).map(r => r.name);
+  if (!existingCols.includes('old_start_line')) {
+    db.exec('ALTER TABLE comment_threads ADD COLUMN old_start_line INTEGER');
+  }
+  if (!existingCols.includes('old_end_line')) {
+    db.exec('ALTER TABLE comment_threads ADD COLUMN old_end_line INTEGER');
+  }
+  if (!existingCols.includes('new_start_line')) {
+    db.exec('ALTER TABLE comment_threads ADD COLUMN new_start_line INTEGER');
+  }
+  if (!existingCols.includes('new_end_line')) {
+    db.exec('ALTER TABLE comment_threads ADD COLUMN new_end_line INTEGER');
+  }
 }
 
 export function closeDb(): void {

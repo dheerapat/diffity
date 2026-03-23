@@ -128,6 +128,10 @@ export function createThread(data: {
   body: string;
   author: CommentAuthor;
   anchorContent?: string;
+  oldStartLine?: number;
+  oldEndLine?: number;
+  newStartLine?: number;
+  newEndLine?: number;
 }): Promise<CommentThread> {
   return apiFetch('/api/threads', {
     method: 'POST',

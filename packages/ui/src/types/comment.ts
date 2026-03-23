@@ -13,7 +13,7 @@ export interface Comment {
   createdAt: string;
 }
 
-export type CommentSide = 'old' | 'new';
+export type CommentSide = 'old' | 'new' | 'both';
 
 export type ThreadStatus = 'open' | 'resolved' | 'dismissed';
 
@@ -23,6 +23,10 @@ export interface CommentThread {
   side: CommentSide;
   startLine: number;
   endLine: number;
+  oldStartLine?: number;
+  oldEndLine?: number;
+  newStartLine?: number;
+  newEndLine?: number;
   comments: Comment[];
   status: ThreadStatus;
   anchorContent?: string;
@@ -39,6 +43,10 @@ export interface LineSelection {
   side: CommentSide;
   startLine: number;
   endLine: number;
+  oldStartLine?: number;
+  oldEndLine?: number;
+  newStartLine?: number;
+  newEndLine?: number;
 }
 
 export interface LineRenderProps {
@@ -49,7 +57,7 @@ export interface LineRenderProps {
   threads?: CommentThread[];
   pendingSelection?: LineSelection | null;
   currentAuthor?: CommentAuthor;
-  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor) => void;
+  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number) => void;
   onCancelPending?: () => void;
   filePath?: string;
   onReply?: (threadId: string, body: string, author: CommentAuthor) => void;
