@@ -31,27 +31,48 @@ function getLineNumberAndSideFromPoint(x: number, y: number): { lineNumber: numb
     return null;
   }
 
-  const td = el.closest('td[data-line-side]') as HTMLTableCellElement | null;
-  if (!td) {
+  // Try the direct td[data-line-side] ancestor first
+  const directTd = el.closest('td[data-line-side]') as HTMLTableCellElement | null;
+  if (directTd) {
+    const text = directTd.textContent?.trim();
+    const num = parseInt(text ?? '', 10);
+    const side = directTd.dataset.lineSide as CommentSide | undefined;
+    if (!isNaN(num) && (side === 'old' || side === 'new')) {
+      return { lineNumber: num, side };
+    }
+  }
+
+  // Fallback: scan the entire row for line-number cells.
+  // This handles the case where the cursor is over the code-content column or an
+  // empty line-number cell (e.g. the old-number column of an add row during a
+  // straight-down drag). We collect only cells that have an actual number and a
+  // known side. If exactly one side has content the row is unambiguous.
+  const row = el.closest('tr');
+  if (!row) {
     return null;
   }
 
-  const text = td.textContent?.trim();
-  if (!text) {
-    return null;
+  const found: { lineNumber: number; side: CommentSide }[] = [];
+  for (const td of row.querySelectorAll<HTMLElement>('td[data-line-side]')) {
+    const text = td.textContent?.trim();
+    const num = parseInt(text ?? '', 10);
+    const side = td.dataset.lineSide as CommentSide | undefined;
+    if (!isNaN(num) && (side === 'old' || side === 'new')) {
+      // Avoid duplicates (context rows have both sides equal – only keep first)
+      if (!found.some(f => f.side === side)) {
+        found.push({ lineNumber: num, side });
+      }
+    }
   }
 
-  const num = parseInt(text, 10);
-  if (isNaN(num)) {
-    return null;
+  // Return only when exactly one side is present (delete/add row).
+  // For context rows both sides are filled, which is ambiguous – don't change the
+  // current side, and let the caller use whatever it had before.
+  if (found.length === 1) {
+    return found[0];
   }
 
-  const side = td.dataset.lineSide as CommentSide | undefined;
-  if (side !== 'old' && side !== 'new') {
-    return null;
-  }
-
-  return { lineNumber: num, side };
+  return null;
 }
 
 export function useLineSelection(options: UseLineSelectionOptions): UseLineSelectionReturn {

@@ -55,8 +55,8 @@ export function DiffLine(props: DiffLineProps) {
         showCommentButton={!!onCommentClick && line.type === 'delete' && line.oldLineNumber !== null}
         isSelected={isSelected && side === 'old'}
         lineSide="old"
-        onMouseDown={line.oldLineNumber !== null ? () => onLineMouseDown?.(line.oldLineNumber!, line.type === 'delete' ? 'old' : 'new') : undefined}
-        onMouseEnter={line.oldLineNumber !== null ? () => onLineMouseEnter?.(line.oldLineNumber!, line.type === 'delete' ? 'old' : 'new') : undefined}
+        onMouseDown={line.oldLineNumber !== null ? () => onLineMouseDown?.(line.oldLineNumber!, 'old') : undefined}
+        onMouseEnter={line.oldLineNumber !== null ? () => onLineMouseEnter?.(line.oldLineNumber!, 'old') : undefined}
         onCommentClick={line.oldLineNumber !== null && line.type === 'delete' ? () => onCommentClick?.(line.oldLineNumber!, 'old') : undefined}
       />
       <CommentLineNumber
@@ -65,8 +65,8 @@ export function DiffLine(props: DiffLineProps) {
         showCommentButton={!!onCommentClick && line.type !== 'delete' && line.newLineNumber !== null}
         isSelected={isSelected && side === 'new'}
         lineSide="new"
-        onMouseDown={line.newLineNumber !== null ? () => onLineMouseDown?.(line.newLineNumber!, line.type === 'delete' ? 'old' : 'new') : undefined}
-        onMouseEnter={line.newLineNumber !== null ? () => onLineMouseEnter?.(line.newLineNumber!, line.type === 'delete' ? 'old' : 'new') : undefined}
+        onMouseDown={line.newLineNumber !== null ? () => onLineMouseDown?.(line.newLineNumber!, 'new') : undefined}
+        onMouseEnter={line.newLineNumber !== null ? () => onLineMouseEnter?.(line.newLineNumber!, 'new') : undefined}
         onCommentClick={line.newLineNumber !== null && line.type !== 'delete' ? () => onCommentClick?.(line.newLineNumber!, 'new') : undefined}
       />
       <td className={cn('w-5 min-w-5 px-1 text-center select-none align-top', getPrefixColor(line.type), isSelected && 'bg-diff-comment-bg')}>

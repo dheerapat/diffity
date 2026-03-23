@@ -59,19 +59,24 @@ function extractCodeContext(diff: ParsedDiff | undefined, filePath: string, side
   }
 
   const lines: string[] = [];
+  const includedIndices = new Set<number>();
   for (const hunk of file.hunks) {
-    for (const line of hunk.lines) {
+    for (let i = 0; i < hunk.lines.length; i++) {
+      const line = hunk.lines[i];
       let include = false;
       if (side === 'both') {
-        const oldNum = line.oldLineNumber;
-        const newNum = line.newLineNumber;
-        if (oldNum !== null && oldStartLine !== undefined && oldEndLine !== undefined && oldNum >= oldStartLine && oldNum <= oldEndLine) include = true;
-        if (newNum !== null && newStartLine !== undefined && newEndLine !== undefined && newNum >= newStartLine && newNum <= newEndLine) include = true;
+        if (!includedIndices.has(i)) {
+          const oldNum = line.oldLineNumber;
+          const newNum = line.newLineNumber;
+          if (oldNum !== null && oldStartLine !== undefined && oldEndLine !== undefined && oldNum >= oldStartLine && oldNum <= oldEndLine) include = true;
+          if (newNum !== null && newStartLine !== undefined && newEndLine !== undefined && newNum >= newStartLine && newNum <= newEndLine) include = true;
+        }
       } else {
         const lineNum = side === 'old' ? line.oldLineNumber : line.newLineNumber;
         if (lineNum !== null && lineNum >= startLine && lineNum <= endLine) include = true;
       }
       if (include) {
+        includedIndices.add(i);
         const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
         lines.push(`${prefix} ${line.content}`);
       }
