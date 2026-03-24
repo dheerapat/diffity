@@ -47,7 +47,7 @@ export function handleReviewRoute(req: IncomingMessage, res: ServerResponse, pat
 
   if (pathname === '/api/threads' && req.method === 'POST') {
     withJsonBody(res, req, 'Failed to create thread', (body) => {
-      const { sessionId: sid, filePath, side, startLine, endLine, body: commentBody, author, anchorContent } = body;
+      const { sessionId: sid, filePath, side, startLine, endLine, body: commentBody, author, anchorContent, oldStartLine, oldEndLine, newStartLine, newEndLine } = body;
       if (!sid || !filePath || !side || typeof startLine !== 'number' || typeof endLine !== 'number' || !commentBody || !author) {
         sendError(res, 400, 'Missing required fields');
         return;
@@ -56,6 +56,10 @@ export function handleReviewRoute(req: IncomingMessage, res: ServerResponse, pat
         sid as string, filePath as string, side as string, startLine, endLine,
         commentBody as string, author as { name: string; type: string },
         anchorContent as string | undefined,
+        typeof oldStartLine === 'number' ? oldStartLine : undefined,
+        typeof oldEndLine === 'number' ? oldEndLine : undefined,
+        typeof newStartLine === 'number' ? newStartLine : undefined,
+        typeof newEndLine === 'number' ? newEndLine : undefined,
       );
       sendJson(res, thread);
     });

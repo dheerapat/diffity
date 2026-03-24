@@ -22,6 +22,10 @@ export interface Thread {
   side: string;
   startLine: number;
   endLine: number;
+  oldStartLine: number | null;
+  oldEndLine: number | null;
+  newStartLine: number | null;
+  newEndLine: number | null;
   status: ThreadStatus;
   anchorContent: string | null;
   createdAt: string;
@@ -36,6 +40,10 @@ interface ThreadRow {
   side: string;
   start_line: number;
   end_line: number;
+  old_start_line: number | null;
+  old_end_line: number | null;
+  new_start_line: number | null;
+  new_end_line: number | null;
   status: string;
   anchor_content: string | null;
   created_at: string;
@@ -59,6 +67,10 @@ function rowToThread(row: ThreadRow, comments: ThreadComment[]): Thread {
     side: row.side,
     startLine: row.start_line,
     endLine: row.end_line,
+    oldStartLine: row.old_start_line,
+    oldEndLine: row.old_end_line,
+    newStartLine: row.new_start_line,
+    newEndLine: row.new_end_line,
     status: row.status as ThreadStatus,
     anchorContent: row.anchor_content,
     createdAt: row.created_at,
@@ -109,6 +121,10 @@ export function createThread(
   body: string,
   author: ThreadAuthor,
   anchorContent?: string,
+  oldStartLine?: number,
+  oldEndLine?: number,
+  newStartLine?: number,
+  newEndLine?: number,
 ): Thread {
   const db = getDb();
   const threadId = randomUUID();
@@ -116,8 +132,8 @@ export function createThread(
   const now = new Date().toISOString();
 
   db.prepare(
-    'INSERT INTO comment_threads (id, session_id, file_path, side, start_line, end_line, anchor_content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(threadId, sessionId, filePath, side, startLine, endLine, anchorContent ?? null, now, now);
+    'INSERT INTO comment_threads (id, session_id, file_path, side, start_line, end_line, anchor_content, old_start_line, old_end_line, new_start_line, new_end_line, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(threadId, sessionId, filePath, side, startLine, endLine, anchorContent ?? null, oldStartLine ?? null, oldEndLine ?? null, newStartLine ?? null, newEndLine ?? null, now, now);
 
   db.prepare(
     'INSERT INTO comments (id, thread_id, author_name, author_type, body, created_at) VALUES (?, ?, ?, ?, ?, ?)'
@@ -130,6 +146,10 @@ export function createThread(
     side,
     startLine,
     endLine,
+    oldStartLine: oldStartLine ?? null,
+    oldEndLine: oldEndLine ?? null,
+    newStartLine: newStartLine ?? null,
+    newEndLine: newEndLine ?? null,
     status: 'open',
     anchorContent: anchorContent ?? null,
     createdAt: now,

@@ -10,11 +10,11 @@ export function useCommentActions(sessionId: string | null, enabled: boolean) {
     queryClient.invalidateQueries({ queryKey: ['threads', sessionId] });
   }, [queryClient, sessionId]);
 
-  const addThread = useCallback((filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor, anchorContent?: string) => {
+  const addThread = useCallback((filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor, anchorContent?: string, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number) => {
     if (!enabled || !sessionId) {
       return;
     }
-    api.createThread({ sessionId, filePath, side, startLine, endLine, body, author, anchorContent }).then(() => {
+    api.createThread({ sessionId, filePath, side, startLine, endLine, body, author, anchorContent, oldStartLine, oldEndLine, newStartLine, newEndLine }).then(() => {
       invalidateThreads();
     });
   }, [enabled, sessionId, invalidateThreads]);

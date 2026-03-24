@@ -23,7 +23,7 @@ interface HunkBlockProps {
   onLineMouseDown?: (line: number, side: CommentSide) => void;
   onLineMouseEnter?: (line: number, side: CommentSide) => void;
   onCommentClick?: (line: number, side: CommentSide) => void;
-  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor) => void;
+  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number) => void;
   onReply?: (threadId: string, body: string, author: CommentAuthor) => void;
   onResolve?: (threadId: string) => void;
   onUnresolve?: (threadId: string) => void;
@@ -66,8 +66,18 @@ export function renderLineWithComments(
   );
 
   if (activeLine !== null && props.threads) {
-    const lineThreads = props.threads.filter(t => t.endLine === activeLine && t.side === side);
+    const lineThreads = props.threads.filter(t => {
+      if (t.side === side) return t.endLine === activeLine;
+      if (t.side === 'both') {
+        // Show 'both' threads after the last line of the new-side range (or old-side if no new range)
+        const displayLine = t.newEndLine ?? t.oldEndLine;
+        const displaySide: CommentSide = t.newEndLine !== undefined ? 'new' : 'old';
+        return displaySide === side && displayLine === activeLine;
+      }
+      return false;
+    });
     for (const thread of lineThreads) {
+      const threadSide = thread.side === 'both' ? (thread.newEndLine !== undefined ? 'new' : 'old') : thread.side;
       result.push(
         <CommentThread
           key={`thread-${thread.id}`}
@@ -80,26 +90,44 @@ export function renderLineWithComments(
           onDeleteThread={props.onDeleteThread!}
           currentAuthor={props.currentAuthor!}
           colSpan={4}
-          currentCode={props.getOriginalCode?.(thread.side, thread.startLine, thread.endLine)}
+          currentCode={props.getOriginalCode?.(threadSide, thread.startLine, thread.endLine)}
         />
       );
     }
   }
 
-  if (activeLine !== null && props.pendingSelection && props.pendingSelection.endLine === activeLine && props.pendingSelection.side === side && props.filePath && props.currentAuthor && props.onAddThread && props.onCancelPending) {
-    result.push(
-      <CommentFormRow
-        key="pending-comment"
-        colSpan={4}
-        filePath={props.filePath}
-        side={props.pendingSelection.side}
-        startLine={props.pendingSelection.startLine}
-        endLine={props.pendingSelection.endLine}
-        currentAuthor={props.currentAuthor}
-        onSubmit={props.onAddThread}
-        onCancel={props.onCancelPending}
-      />
-    );
+  if (activeLine !== null && props.pendingSelection && props.filePath && props.currentAuthor && props.onAddThread && props.onCancelPending) {
+    const sel = props.pendingSelection;
+    let showForm = false;
+    if (sel.side === side && sel.endLine === activeLine) {
+      showForm = true;
+    } else if (sel.side === 'both') {
+      // Show after the new-side end line (or old-side if no new range)
+      const displayLine = sel.newEndLine ?? sel.oldEndLine;
+      const displaySide: CommentSide = sel.newEndLine !== undefined ? 'new' : 'old';
+      if (displaySide === side && displayLine === activeLine) {
+        showForm = true;
+      }
+    }
+    if (showForm) {
+      result.push(
+        <CommentFormRow
+          key="pending-comment"
+          colSpan={4}
+          filePath={props.filePath}
+          side={sel.side}
+          startLine={sel.startLine}
+          endLine={sel.endLine}
+          oldStartLine={sel.oldStartLine}
+          oldEndLine={sel.oldEndLine}
+          newStartLine={sel.newStartLine}
+          newEndLine={sel.newEndLine}
+          currentAuthor={props.currentAuthor}
+          onSubmit={props.onAddThread}
+          onCancel={props.onCancelPending}
+        />
+      );
+    }
   }
 
   return result;

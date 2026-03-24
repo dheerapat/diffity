@@ -25,7 +25,7 @@ interface HunkBlockSplitProps {
   onLineMouseDown?: (line: number, side: CommentSide) => void;
   onLineMouseEnter?: (line: number, side: CommentSide) => void;
   onCommentClick?: (line: number, side: CommentSide) => void;
-  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor) => void;
+  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number) => void;
   onReply?: (threadId: string, body: string, author: CommentAuthor) => void;
   onResolve?: (threadId: string) => void;
   onUnresolve?: (threadId: string) => void;
@@ -139,6 +139,7 @@ function SplitCell(props: {
         isSelected={isSelected}
         showCommentButton={!!onCommentClick && lineNum !== null}
         forceShowButton={contentHovered}
+        lineSide={side === 'left' ? 'old' : 'new'}
         onMouseDown={onMouseDown}
         onMouseEnter={onMouseEnter}
         onCommentClick={onCommentClick}
@@ -199,7 +200,16 @@ export function renderSplitRows(
     const threadRows: React.ReactNode[] = [];
 
     if (leftNum !== null && props.threads) {
-      const leftThreads = props.threads.filter(t => t.endLine === leftNum && t.side === 'old');
+      const leftThreads = props.threads.filter(t => {
+        if (t.side === 'old') return t.endLine === leftNum;
+        if (t.side === 'both') {
+          // Show in left column only when there is no new range (old-side display only)
+          if (t.newEndLine === undefined) {
+            return t.oldEndLine === leftNum;
+          }
+        }
+        return false;
+      });
       for (const thread of leftThreads) {
         threadRows.push(
           <CommentThread
@@ -215,14 +225,22 @@ export function renderSplitRows(
             colSpan={2}
             viewMode="split"
             side="old"
-            currentCode={props.getOriginalCode?.(thread.side, thread.startLine, thread.endLine)}
+            currentCode={props.getOriginalCode?.('old', thread.oldStartLine ?? thread.startLine, thread.oldEndLine ?? thread.endLine)}
           />
         );
       }
     }
 
     if (rightNum !== null && props.threads) {
-      const rightThreads = props.threads.filter(t => t.endLine === rightNum && t.side === 'new');
+      const rightThreads = props.threads.filter(t => {
+        if (t.side === 'new') return t.endLine === rightNum;
+        if (t.side === 'both') {
+          const displayLine = t.newEndLine ?? t.oldEndLine;
+          const displaySide: CommentSide = t.newEndLine !== undefined ? 'new' : 'old';
+          return displaySide === 'new' && displayLine === rightNum;
+        }
+        return false;
+      });
       for (const thread of rightThreads) {
         threadRows.push(
           <CommentThread
@@ -238,24 +256,38 @@ export function renderSplitRows(
             colSpan={2}
             viewMode="split"
             side="new"
-            currentCode={props.getOriginalCode?.(thread.side, thread.startLine, thread.endLine)}
+            currentCode={props.getOriginalCode?.('new', thread.newStartLine ?? thread.startLine, thread.newEndLine ?? thread.endLine)}
           />
         );
       }
     }
 
     if (props.pendingSelection && props.filePath && props.currentAuthor && props.onAddThread && props.onCancelPending) {
-      const showForLeft = leftNum !== null && props.pendingSelection.endLine === leftNum && props.pendingSelection.side === 'old';
-      const showForRight = rightNum !== null && props.pendingSelection.endLine === rightNum && props.pendingSelection.side === 'new';
-      if (showForLeft || showForRight) {
+      const sel = props.pendingSelection;
+      let showForm = false;
+      if (sel.side === 'old' && leftNum !== null && sel.endLine === leftNum) {
+        showForm = true;
+      } else if (sel.side === 'new' && rightNum !== null && sel.endLine === rightNum) {
+        showForm = true;
+      } else if (sel.side === 'both') {
+        const displayLine = sel.newEndLine ?? sel.oldEndLine;
+        const displaySide: CommentSide = sel.newEndLine !== undefined ? 'new' : 'old';
+        if (displaySide === 'new' && rightNum !== null && displayLine === rightNum) showForm = true;
+        else if (displaySide === 'old' && leftNum !== null && displayLine === leftNum) showForm = true;
+      }
+      if (showForm) {
         threadRows.push(
           <CommentFormRow
             key="pending-comment"
             colSpan={2}
             filePath={props.filePath}
-            side={props.pendingSelection.side}
-            startLine={props.pendingSelection.startLine}
-            endLine={props.pendingSelection.endLine}
+            side={sel.side}
+            startLine={sel.startLine}
+            endLine={sel.endLine}
+            oldStartLine={sel.oldStartLine}
+            oldEndLine={sel.oldEndLine}
+            newStartLine={sel.newStartLine}
+            newEndLine={sel.newEndLine}
             currentAuthor={props.currentAuthor}
             onSubmit={props.onAddThread}
             onCancel={props.onCancelPending}

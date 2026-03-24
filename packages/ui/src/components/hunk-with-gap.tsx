@@ -31,7 +31,7 @@ interface HunkWithGapProps {
   onLineMouseDown?: (line: number, side: CommentSide) => void;
   onLineMouseEnter?: (line: number, side: CommentSide) => void;
   onCommentClick?: (line: number, side: CommentSide) => void;
-  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor) => void;
+  onAddThread?: (filePath: string, side: CommentSide, startLine: number, endLine: number, body: string, author: CommentAuthor, oldStartLine?: number, oldEndLine?: number, newStartLine?: number, newEndLine?: number) => void;
   onReply?: (threadId: string, body: string, author: CommentAuthor) => void;
   onResolve?: (threadId: string) => void;
   onUnresolve?: (threadId: string) => void;

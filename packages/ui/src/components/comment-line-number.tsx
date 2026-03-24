@@ -10,12 +10,13 @@ interface CommentLineNumberProps {
   onCommentClick?: () => void;
   showCommentButton?: boolean;
   forceShowButton?: boolean;
+  lineSide?: 'old' | 'new';
 }
 
 const baseClass = 'w-12.5 min-w-12.5 px-2 text-right text-text-muted select-none cursor-pointer align-top text-xs leading-6 relative group/line';
 
 export function CommentLineNumber(props: CommentLineNumberProps) {
-  const { lineNumber, className, isSelected, onMouseDown, onMouseEnter, onCommentClick, showCommentButton, forceShowButton } = props;
+  const { lineNumber, className, isSelected, onMouseDown, onMouseEnter, onCommentClick, showCommentButton, forceShowButton, lineSide } = props;
 
   return (
     <td
@@ -24,6 +25,7 @@ export function CommentLineNumber(props: CommentLineNumberProps) {
         className,
         isSelected && 'bg-diff-comment-gutter',
       )}
+      data-line-side={lineSide}
       onMouseDown={(e) => {
         if (onMouseDown && lineNumber !== null) {
           e.preventDefault();
